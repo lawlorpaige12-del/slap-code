@@ -10,7 +10,8 @@ const navItems = [
 ];
 
 function TopBanner() {
-  const { user, loading, dashboard } = useAuth();
+  const { sessionState, dashboard } = useAuth();
+  const { userName } = sessionState;
 
   return (
     <header className="top-banner" role="banner">
@@ -37,16 +38,12 @@ function TopBanner() {
           ))}
         </nav>
         <div className="account-bar">
-          {loading ? (
-            <span className="account-text">Loading…</span>
-          ) : (
-            <div className="account-controls">
-              <span className="account-text">{user?.name ?? 'Scholar'}</span>
-              <div style={{ marginLeft: '0.75rem', fontWeight: 800 }}>
-                XP: {dashboard ? dashboard.xp : 0}
-              </div>
+          <div className="account-controls">
+            <span className="account-text">{userName || 'Scholar'}</span>
+            <div style={{ marginLeft: '0.75rem', fontWeight: 800 }}>
+              XP: {dashboard ? dashboard.xp : 0}
             </div>
-          )}
+          </div>
         </div>
       </div>
     </header>

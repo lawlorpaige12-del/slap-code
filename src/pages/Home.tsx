@@ -3,7 +3,8 @@ import EcosystemPreview from '../components/EcosystemPreview';
 import { useAuth } from '../context/AuthContext';
 
 function Home() {
-  const { user, dashboard, loading } = useAuth();
+  const { sessionState, dashboard, loading } = useAuth();
+  const { userName, tasks } = sessionState;
 
   return (
     <section className="section-grid" aria-label="Home dashboard">
@@ -12,10 +13,14 @@ function Home() {
         <p>
           {loading
             ? 'Loading your dashboard…'
-            : `Welcome back, ${user?.name ?? 'Scholar'}. Track today’s progress and keep your ecosystem growing.`}
+            : userName
+            ? `Welcome back, ${userName}. Track today's progress and keep your ecosystem growing.`
+            : 'Welcome to slAP. Start by completing your study plan.'}
         </p>
       </div>
 
+      {tasks.length ? (
+        <>
         <div className="stats-grid">
         <div className="card metric-pill">
           <strong>Tasks Completed</strong>
@@ -41,7 +46,8 @@ function Home() {
           {dashboard ? (
             <div className="weekly-graph" aria-hidden>
               {Array.from({ length: 7 }).map((_, i) => {
-                const height = Math.max(6, Math.min(80, Math.round((dashboard.tasksCompleted / 24) * 80) + (i % 3) * 6));
+                const maxHeight = Math.max(6, Math.round((dashboard.tasksCompleted / Math.max(1, dashboard.totalTasks)) * 80));
+                const height = Math.max(6, Math.min(80, maxHeight + (i % 3) * 6));
                 return <div key={i} className="bar" style={{ height: `${height}px` }} />;
               })}
             </div>
@@ -59,35 +65,20 @@ function Home() {
       <div className="card">
         <h2>Countdown to Deadlines</h2>
         <ul className="countdown-list">
-          {dashboard && dashboard.upcoming && dashboard.upcoming.length ? (
-            dashboard.upcoming.map((item) => (
-              <li className="countdown-item" key={item.title}>
-                <div className="task-details">
-                  <span>{item.title}</span>
-                  <span className={`countdown-pill ${item.priority.toLowerCase()}`} style={{ marginLeft: '0.75rem' }}>{item.priority}</span>
-                </div>
-                <strong>{item.due}</strong>
-              </li>
-            ))
-          ) : (
-            <>
-              <li className="countdown-item">
-                <div className="task-details">
-                  <span>AP Calculus Exam</span>
-                  <span className="countdown-pill high" style={{ marginLeft: '0.75rem' }}>High</span>
-                </div>
-                <strong>5 days remaining</strong>
-              </li>
-              <li className="countdown-item">
-                <div className="task-details">
-                  <span>History DBQ Draft</span>
-                  <span className="countdown-pill medium">Medium</span>
-                </div>
-                <strong>2 days remaining</strong>
-              </li>
-            </>
-          )}
-        </ul>
+              {dashboard && dashboard.upcoming && dashboard.upcoming.length ? (
+                dashboard.upcoming.map((item) => (
+                  <li className="countdown-item" key={item.title}>
+                    <div className="task-details">
+                      <span>{item.title}</span>
+                      <span className={`countdown-pill ${item.priority.toLowerCase()}`} style={{ marginLeft: '0.75rem' }}>{item.priority}</span>
+                    </div>
+                    <strong>{item.due}</strong>
+                  </li>
+                ))
+              ) : (
+                <div className="preview-panel">No exams scheduled. Add an exam date in the Study Planner to see countdowns.</div>
+              )}
+            </ul>
       </div>
 
       <div className="card ecosystem-preview">
@@ -99,6 +90,12 @@ function Home() {
         </div>
         <EcosystemPreview health={dashboard?.ecosystemHealth ?? 'vibrant'} />
       </div>
+        </>
+      ) : (
+        <div className="card">
+          <p>Start by going to the <Link to="/planner">Study Planner</Link> and creating your first study schedule.</p>
+        </div>
+      )}
     </section>
   );
 }

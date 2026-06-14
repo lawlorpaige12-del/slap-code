@@ -1,81 +1,68 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { fetchDashboardStats, getCurrentUser, signInWithEmail, signOutUser } from '../services/api';
+import React, { createContext, useContext, useState } from 'react';
+import { computeDashboardStats, PlanTask, PlannerInput, DashboardStats } from '../services/api';
 
-type User = {
-  id: string;
-  name: string;
-  email: string;
-  xp: number;
-  streak: number;
-  level: number;
-};
-
-type Dashboard = {
-  tasksCompleted: number;
-  totalStudyTime: string;
-  streak: number;
-  xp: number;
-  level: number;
-  totalTasks: number;
-  upcoming: Array<{ title: string; due: string; priority: string }>;
-  leaderboard: Array<{ name: string; xp: number; studyTime: string; level: number }>;
-  ecosystemHealth: 'vibrant' | 'recovering' | 'neglected';
+type SessionState = {
+  userName: string;
+  tasks: PlanTask[];
+  plannerInput: PlannerInput | null;
 };
 
 type AuthContextValue = {
-  user: User | null;
-  dashboard: Dashboard | null;
+  sessionState: SessionState;
+  dashboard: DashboardStats | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
+  setUserName: (name: string) => void;
+  setTasks: (tasks: PlanTask[]) => void;
+  setPlannerInput: (input: PlannerInput) => void;
   refreshDashboard: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [sessionState, setSessionState] = useState<SessionState>({
+    userName: '',
+    tasks: [],
+    plannerInput: null,
+  });
+  const [dashboard, setDashboard] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const loadUser = async () => {
-    setLoading(true);
-    const current = await getCurrentUser();
-    if (current) {
-      setUser(current);
-    }
-    const stats = await fetchDashboardStats();
-    setDashboard(stats);
-    setLoading(false);
+  const setUserName = (name: string) => {
+    setSessionState((prev) => ({ ...prev, userName: name }));
   };
 
-  useEffect(() => {
-    loadUser();
-  }, []);
-
-  const signIn = async (email: string, password: string) => {
-    setLoading(true);
-    const authenticated = await signInWithEmail(email, password);
-    setUser(authenticated);
-    await loadUser();
+  const setTasks = (tasks: PlanTask[]) => {
+    setSessionState((prev) => ({ ...prev, tasks }));
   };
 
-  const signOut = async () => {
-    setLoading(true);
-    await signOutUser();
-    setUser(null);
-    await loadUser();
+  const setPlannerInput = (input: PlannerInput) => {
+    setSessionState((prev) => ({ ...prev, plannerInput: input }));
   };
 
   const refreshDashboard = async () => {
     setLoading(true);
-    const stats = await fetchDashboardStats();
+    const stats = await computeDashboardStats(
+      sessionState.tasks,
+      sessionState.plannerInput,
+      sessionState.userName
+    );
     setDashboard(stats);
     setLoading(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, dashboard, loading, signIn, signOut, refreshDashboard }}>
+    <AuthContext.Provider
+      value={{
+        sessionState,
+        dashboard,
+        loading,
+        setUserName,
+        setTasks,
+        setPlannerInput,
+        refreshDashboard,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

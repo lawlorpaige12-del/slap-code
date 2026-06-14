@@ -1,38 +1,35 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fetchSavedPlan, getPlannerInput } from '../services/api';
 
 function SlapButton() {
-  const { dashboard } = useAuth();
+  const { sessionState } = useAuth();
+  const { tasks, plannerInput } = sessionState;
   const [open, setOpen] = useState(false);
   const [message, setMessage] = useState('STUDY.');
 
-  const buildMessage = async () => {
-    const tasks = (await fetchSavedPlan()) || [];
-    const incomplete = tasks.filter((t: any) => !t.completed).length;
+  const buildMessage = () => {
+    const incomplete = tasks.filter((t) => !t.completed).length;
     if (incomplete > 0) {
       return `You are ${incomplete} ${incomplete === 1 ? 'task' : 'tasks'} behind. Start with one.`;
     }
 
-    const input = await getPlannerInput();
-    if (input?.nextExam) {
-      const then = new Date(input.nextExam);
-      if (!Number.isNaN(then.getTime())) {
-        const diff = Math.ceil((then.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-        if (diff >= 0) return `${diff} days until your next exam.`;
+    if (plannerInput?.nextExam) {
+      try {
+        const then = new Date(plannerInput.nextExam);
+        if (!Number.isNaN(then.getTime())) {
+          const diff = Math.ceil((then.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+          if (diff >= 0) return `${diff} days until your next exam.`;
+        }
+      } catch (e) {
+        // ignore
       }
-    }
-
-    if (dashboard?.streak && dashboard.streak >= 21) {
-      const weeks = Math.floor(dashboard.streak / 7);
-      return `You have a ${weeks}-week streak. Keep it going.`;
     }
 
     return 'STUDY.';
   };
 
-  const handleOpen = async () => {
-    const m = await buildMessage();
+  const handleOpen = () => {
+    const m = buildMessage();
     setMessage(m);
     setOpen(true);
   };

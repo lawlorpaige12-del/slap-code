@@ -1,11 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { generatePlan, fetchSavedPlan, fetchCalendarEntries, PlannerInput, PlanTask, savePlan } from '../services/api';
+import React, { useState } from 'react';
+import { generatePlan, fetchCalendarEntries, PlannerInput, PlanTask } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 function StudyPlanner() {
-  const [studyWindow, setStudyWindow] = useState('6:00 - 9:00 PM');
-  const [courses, setCourses] = useState('Calculus, Biology, History, Chemistry');
-  const [nextExam, setNextExam] = useState('2026-06-15');
+  const auth = useAuth();
+  const { setTasks, setPlannerInput, refreshDashboard } = auth;
+  const { tasks } = auth.sessionState;
+
+  const [studyWindow, setStudyWindow] = useState('');
+  const [courses, setCourses] = useState('');
+  const [nextExam, setNextExam] = useState('');
   const [priority, setPriority] = useState<PlannerInput['priority']>('High');
   const [weeklyAvailability, setWeeklyAvailability] = useState<Record<string, number | null>>({
     Mon: null,
@@ -16,27 +20,16 @@ function StudyPlanner() {
     Sat: null,
     Sun: null,
   });
-  const [tasks, setTasks] = useState<PlanTask[]>([]);
   const [calendar, setCalendar] = useState<Array<{ id: string; day: string; task: string; time: string }>>([]);
   const [status, setStatus] = useState('Your study plan is ready.');
 
-  const loadSavedPlan = async () => {
-    const savedTasks = await fetchSavedPlan();
-    if (savedTasks?.length) {
-      setTasks(savedTasks);
-      setCalendar(await fetchCalendarEntries(savedTasks));
-      try { await auth.refreshDashboard(); } catch (e) { /* ignore */ }
-    }
-  };
-
-  
-
-  useEffect(() => {
-    loadSavedPlan();
-  }, []);
-
   const handleGenerate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!courses.trim()) {
+      setStatus('Please enter at least one course.');
+      return;
+    }
+
     setStatus('Generating your adaptive study schedule…');
     const input: PlannerInput = {
       studyWindow,
@@ -45,16 +38,14 @@ function StudyPlanner() {
       priority,
       weeklyAvailability: weeklyAvailability as any,
     };
+
     const generated = await generatePlan(input);
     setTasks(generated);
-    await savePlan(generated);
-    setCalendar(await fetchCalendarEntries(generated));
+    setPlannerInput(input);
+    setCalendar(await fetchCalendarEntries(generated, input));
     setStatus('Your study plan has been updated.');
-    // refresh global dashboard
-    try { await auth.refreshDashboard(); } catch (e) { /* ignore */ }
+    await refreshDashboard();
   };
-
-  const auth = useAuth();
 
   return (
     <section className="section-grid" aria-label="AI study planner">
@@ -105,7 +96,7 @@ function StudyPlanner() {
             ))}
           </div>
         </label>
-        <button className="submit-button" type="submit">Regenerate Schedule</button>
+        <button className="submit-button" type="submit">Generate Schedule</button>
         <p className="planner-status">{status}</p>
       </form>
 
@@ -125,12 +116,12 @@ function StudyPlanner() {
                     className="submit-button"
                     type="button"
                     onClick={async () => {
-                        const updated = tasks.map((t) => (t.id === task.id ? { ...t, completed: !t.completed } : t));
-                        setTasks(updated);
-                        await savePlan(updated);
-                        setCalendar(await fetchCalendarEntries(updated));
-                        try { await auth.refreshDashboard(); } catch (e) { /* ignore */ }
-                      }}
+                      const updated = tasks.map((t) =>
+                        t.id === task.id ? { ...t, completed: !t.completed } : t
+                      );
+                      setTasks(updated);
+                      await refreshDashboard();
+                    }}
                   >
                     {task.completed ? 'Mark Incomplete' : 'Mark Complete'}
                   </button>
