@@ -4,7 +4,7 @@
 
 :root {
   color-scheme: light;
-  font-family: 'Federo', Arial, sans-serif;
+  font-family: 'Gelasio', Georgia, serif;
   background: #f7f7f7;
   color: #2c4251;
   --surface: #ffffff;
@@ -15,6 +15,88 @@
   --success: #08dc52;
   --muted: #c1c1c1;
 }
+
+/* Import Gelasio from Google Fonts (fallback if not available) */
+@import url('https://fonts.googleapis.com/css2?family=Gelasio:wght@400;700&display=swap');
+
+/* Larger base sizes for headings and body */
+body { font-size: 18px; }
+.page-title { font-size: 1.8rem; margin: 0 0 0.5rem 0; }
+
+/* SLAP floating button */
+.slap-button {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 9999;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #B20D30;
+  color: white;
+  border: none;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  box-shadow: 0 12px 30px rgba(178, 13, 48, 0.28);
+}
+
+/* Full screen SLAP modal */
+.slap-modal-full {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,0.55);
+}
+.slap-modal-full-inner {
+  background: var(--surface);
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.slap-modal-message-big {
+  font-size: 4rem;
+  font-weight: 900;
+  color: var(--primary);
+  text-align: center;
+}
+.slap-modal-ok-full {
+  margin-top: 2rem;
+  background: #08DC52;
+  color: #063018;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+/* Weekly availability grid */
+.weekly-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+}
+.weekly-grid label { font-size: 0.85rem; }
+
+/* Pomodoro styles */
+.timer-panel { display: grid; gap: 1rem; align-items: center; }
+.timer-display { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.timer-mode { font-weight: 700; }
+.timer-count { font-size: 2.5rem; font-weight: 800; }
+.timer-controls { display:flex; gap:0.5rem; }
+
+/* Weekly graph */
+.weekly-graph { display:flex; gap:0.5rem; align-items:end; height:100px; padding:0.5rem; }
+.weekly-graph .bar { width:14%; background: linear-gradient(180deg,#b20d30,#d16666); border-radius:6px; }
+
+/* Contact visuals */
+.contact-visual-art { display:flex; gap:1rem; margin:1rem 0; }
+.visual-bubble { width:64px; height:64px; border-radius:18px; display:grid; place-items:center; background:linear-gradient(180deg,#fff,#f6f8fb); box-shadow:0 8px 20px rgba(17,34,54,0.06); font-size:1.5rem; }
 
 body,
 html,

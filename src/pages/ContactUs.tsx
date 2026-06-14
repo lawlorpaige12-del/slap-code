@@ -19,23 +19,15 @@ function ContactUs() {
           </ul>
         </div>
 
-        <div className="card contact-card">
-          <h2>Feedback Form</h2>
-          <div className="feedback-box">
-            <label>
-              Name
-              <input type="text" placeholder="Your name" aria-label="Name" />
-            </label>
-            <label>
-              Email
-              <input type="email" placeholder="Your email" aria-label="Email" />
-            </label>
-            <label>
-              Message
-              <textarea placeholder="Your message" aria-label="Message" />
-            </label>
-            <button className="submit-button" type="button">Send Feedback</button>
+        <div className="card contact-card contact-visual">
+          <h2>Say Hello</h2>
+          <p className="contact-lead">We love hearing from students — questions, bug reports, or collaboration ideas welcome.</p>
+          <div className="contact-visual-art">
+            <div className="visual-bubble">✨</div>
+            <div className="visual-bubble">📚</div>
+            <div className="visual-bubble">🎯</div>
           </div>
+          <p className="contact-follow">Follow us for updates and community highlights.</p>
         </div>
       </div>
     </section>

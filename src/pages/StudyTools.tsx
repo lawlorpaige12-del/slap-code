@@ -14,15 +14,15 @@ function StudyTools() {
   return (
     <section className="section-grid" aria-label="Study tools hub">
       <div className="card">
-        <h1 className="page-title">Study Tools</h1>
-        <p>Today&apos;s productivity tools are ready to help you learn more efficiently.</p>
+        <h1 className="page-title">Study Tools Coming Soon.</h1>
+        <p>We are building helpful study tools. Check back soon — exciting features are on the way.</p>
       </div>
 
       <div className="card tool-grid">
         {tools.map((tool) => (
           <article key={tool} className="card tool-card">
             <strong>{tool}</strong>
-            <p>Tap to explore the next productivity tool.</p>
+            <p>Coming soon — we&apos;ll surface this tool here once ready.</p>
           </article>
         ))}
       </div>
