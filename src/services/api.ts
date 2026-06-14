@@ -205,8 +205,8 @@ export async function fetchCalendarEntries(tasks: PlanTask[]) {
   if (!rawInput) return [];
   try {
     const input = JSON.parse(rawInput) as PlannerInput;
-    const availability = input.weeklyAvailability || {};
-    const dayOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const availability = (input.weeklyAvailability || {}) as WeeklyAvailability;
+    const dayOrder: Array<keyof WeeklyAvailability> = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     // Build slots array where each day appears a number of times equal to available hours (rounded)
     const slots: string[] = [];
