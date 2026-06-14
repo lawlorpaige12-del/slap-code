@@ -1,7 +1,6 @@
 const STORAGE_USER_KEY = 'slap-studious-user';
 const STORAGE_PLAN_KEY = 'slap-studious-plan';
 const STORAGE_PLAN_INPUT_KEY = 'slap-studious-plan-input';
-const STORAGE_FRIENDS_KEY = 'slap-studious-friends';
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -90,13 +89,9 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   const xp = user.xp ?? 0;
   const level = user.level ?? 1;
 
-  const rawFriends = localStorage.getItem(STORAGE_FRIENDS_KEY);
-  const friends = rawFriends ? JSON.parse(rawFriends) : [];
-
   const leaderboard = [
-    ...friends,
     { name: user.name, xp, studyTime: totalStudyTime, level },
-  ].slice(0, 10);
+  ];
 
   // upcoming items: try to read from saved planner input or tasks with due info
   const rawInput = localStorage.getItem(STORAGE_PLAN_INPUT_KEY);
@@ -138,6 +133,19 @@ export async function fetchSavedPlan() {
 export async function savePlan(tasks: PlanTask[]) {
   await delay(150);
   localStorage.setItem(STORAGE_PLAN_KEY, JSON.stringify(tasks));
+
+  // update user XP to reflect completed tasks (sum of completed task xp)
+  const rawUser = localStorage.getItem(STORAGE_USER_KEY);
+  if (rawUser) {
+    try {
+      const user = JSON.parse(rawUser);
+      const completedXp = tasks.filter((t: any) => t.completed).reduce((acc: number, t: any) => acc + (t.xp || 0), 0);
+      user.xp = completedXp;
+      localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(user));
+    } catch (e) {
+      // ignore
+    }
+  }
 }
 
 export async function savePlannerInput(input: PlannerInput) {
@@ -151,25 +159,7 @@ export async function getPlannerInput(): Promise<PlannerInput | null> {
   return raw ? JSON.parse(raw) : null;
 }
 
-export async function getFriends() {
-  await delay(20);
-  const raw = localStorage.getItem(STORAGE_FRIENDS_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-
-export async function addFriend(friend: { name: string; xp: number; studyTime: string; level: number }) {
-  await delay(50);
-  const friends = (await getFriends()) || [];
-  friends.unshift(friend);
-  localStorage.setItem(STORAGE_FRIENDS_KEY, JSON.stringify(friends));
-}
-
-export async function removeFriend(name: string) {
-  await delay(50);
-  const friends = (await getFriends()) || [];
-  const filtered = friends.filter((f: any) => f.name !== name);
-  localStorage.setItem(STORAGE_FRIENDS_KEY, JSON.stringify(filtered));
-}
+// Friends / social features removed — intentionally omitted per product decision.
 
 export async function generatePlan(input: PlannerInput) {
   await delay(300);
@@ -211,21 +201,35 @@ export async function generatePlan(input: PlannerInput) {
 
 export async function fetchCalendarEntries(tasks: PlanTask[]) {
   await delay(120);
-  // Only assign calendar times when the user has provided weekly availability
   const rawInput = localStorage.getItem(STORAGE_PLAN_INPUT_KEY);
   if (!rawInput) return [];
   try {
     const input = JSON.parse(rawInput) as PlannerInput;
-    const daysWithHours = Object.entries(input.weeklyAvailability).filter(([, hours]) => !!hours);
-    if (!daysWithHours.length) return [];
+    const availability = input.weeklyAvailability || {};
+    const dayOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return tasks.map((task, index) => ({
-      id: task.id,
-      day: dayNames[index % dayNames.length],
-      task: task.title,
-      time: `${8 + (index % 4) * 1}:00 PM`,
-    }));
+    // Build slots array where each day appears a number of times equal to available hours (rounded)
+    const slots: string[] = [];
+    dayOrder.forEach((d) => {
+      const hours = Number(availability[d]) || 0;
+      const count = Math.max(0, Math.round(hours));
+      for (let i = 0; i < count; i++) slots.push(d);
+    });
+
+    if (!slots.length) return [];
+
+    // Assign tasks to slots in order, wrap if tasks > slots
+    return tasks.map((task, index) => {
+      const day = slots[index % slots.length];
+      const timeSlotIndex = Math.floor(index / slots.length) % 6; // choose a slot offset
+      const hour = 18 + timeSlotIndex; // start at 6pm
+      return {
+        id: task.id,
+        day,
+        task: task.title,
+        time: `${hour}:00`,
+      };
+    });
   } catch (e) {
     return [];
   }

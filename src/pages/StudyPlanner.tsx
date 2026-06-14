@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { generatePlan, fetchSavedPlan, fetchCalendarEntries, PlannerInput, PlanTask, savePlan } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 function StudyPlanner() {
   const [studyWindow, setStudyWindow] = useState('6:00 - 9:00 PM');
@@ -24,8 +25,11 @@ function StudyPlanner() {
     if (savedTasks?.length) {
       setTasks(savedTasks);
       setCalendar(await fetchCalendarEntries(savedTasks));
+      try { await auth.refreshDashboard(); } catch (e) { /* ignore */ }
     }
   };
+
+  
 
   useEffect(() => {
     loadSavedPlan();
@@ -43,9 +47,14 @@ function StudyPlanner() {
     };
     const generated = await generatePlan(input);
     setTasks(generated);
+    await savePlan(generated);
     setCalendar(await fetchCalendarEntries(generated));
     setStatus('Your study plan has been updated.');
+    // refresh global dashboard
+    try { await auth.refreshDashboard(); } catch (e) { /* ignore */ }
   };
+
+  const auth = useAuth();
 
   return (
     <section className="section-grid" aria-label="AI study planner">
@@ -116,11 +125,12 @@ function StudyPlanner() {
                     className="submit-button"
                     type="button"
                     onClick={async () => {
-                      const updated = tasks.map((t) => (t.id === task.id ? { ...t, completed: !t.completed } : t));
-                      setTasks(updated);
-                      await savePlan(updated);
-                      setCalendar(await fetchCalendarEntries(updated));
-                    }}
+                        const updated = tasks.map((t) => (t.id === task.id ? { ...t, completed: !t.completed } : t));
+                        setTasks(updated);
+                        await savePlan(updated);
+                        setCalendar(await fetchCalendarEntries(updated));
+                        try { await auth.refreshDashboard(); } catch (e) { /* ignore */ }
+                      }}
                   >
                     {task.completed ? 'Mark Incomplete' : 'Mark Complete'}
                   </button>

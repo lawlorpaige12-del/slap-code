@@ -10,7 +10,7 @@ const navItems = [
 ];
 
 function TopBanner() {
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, dashboard } = useAuth();
 
   return (
     <header className="top-banner" role="banner">
@@ -38,18 +38,14 @@ function TopBanner() {
         </nav>
         <div className="account-bar">
           {loading ? (
-            <span className="account-text">Loading profile…</span>
-          ) : user ? (
-            <div className="account-controls">
-              <span className="account-text">{user.name}</span>
-              <button className="nav-button" type="button" onClick={() => void signOut()}>
-                Sign out
-              </button>
-            </div>
+            <span className="account-text">Loading…</span>
           ) : (
-            <NavLink className="nav-link nav-link-button" to="/login">
-              Sign in
-            </NavLink>
+            <div className="account-controls">
+              <span className="account-text">{user?.name ?? 'Scholar'}</span>
+              <div style={{ marginLeft: '0.75rem', fontWeight: 800 }}>
+                XP: {dashboard ? dashboard.xp : 0}
+              </div>
+            </div>
           )}
         </div>
       </div>

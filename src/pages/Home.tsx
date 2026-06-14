@@ -1,34 +1,6 @@
 import { Link } from 'react-router-dom';
 import EcosystemPreview from '../components/EcosystemPreview';
 import { useAuth } from '../context/AuthContext';
-import { addFriend, removeFriend } from '../services/api';
-import { useState } from 'react';
-
-function FriendAdder({ onAdd }: { onAdd?: () => void }) {
-  const [name, setName] = useState('');
-  const [xp, setXp] = useState(1000);
-  const [studyTime, setStudyTime] = useState('5h');
-  const [level, setLevel] = useState(5);
-
-  return (
-    <form
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (!name) return;
-        await addFriend({ name, xp, studyTime, level });
-        setName('');
-        if (onAdd) onAdd();
-      }}
-      style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}
-    >
-      <input placeholder="Friend name" value={name} onChange={(e) => setName(e.target.value)} />
-      <input type="number" value={xp} onChange={(e) => setXp(Number(e.target.value) || 0)} style={{ width: '6rem' }} />
-      <input placeholder="Study time" value={studyTime} onChange={(e) => setStudyTime(e.target.value)} style={{ width: '6rem' }} />
-      <input type="number" value={level} onChange={(e) => setLevel(Number(e.target.value) || 1)} style={{ width: '5rem' }} />
-      <button className="submit-button" type="submit">Add Friend</button>
-    </form>
-  );
-}
 
 function Home() {
   const { user, dashboard, loading } = useAuth();
@@ -80,40 +52,8 @@ function Home() {
       </div>
 
       <div className="card">
-        <h2>Social Leaderboards</h2>
-        {dashboard ? (
-          <div>
-            <ul className="countdown-list">
-              {dashboard.leaderboard.map((friend) => (
-                <li className="countdown-item" key={friend.name}>
-                  <div className="task-details">
-                    <span>{friend.name}</span>
-                    <span>{friend.level} lvl</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <strong>{friend.studyTime} • {friend.xp} XP</strong>
-                    <div>
-                      <button
-                        className="submit-button"
-                        type="button"
-                        onClick={async () => {
-                          if (friend.name !== (dashboard ? dashboard.leaderboard.find((f) => f.name === friend.name)?.name : '')) {
-                            await removeFriend(friend.name);
-                            window.location.reload();
-                          }
-                        }}
-                      >Remove</button>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-
-            <FriendAdder onAdd={async () => { window.location.reload(); }} />
-          </div>
-        ) : (
-          <div className="preview-panel">Friend leaderboard loads after sign in.</div>
-        )}
+        <h2>Social</h2>
+        <div className="preview-panel">Social leaderboards and friend features are disabled.</div>
       </div>
 
       <div className="card">

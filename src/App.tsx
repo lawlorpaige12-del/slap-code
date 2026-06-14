@@ -7,7 +7,7 @@ import StudyPlanner from './pages/StudyPlanner';
 import Pomodoro from './pages/Pomodoro';
 import StudyTools from './pages/StudyTools';
 import ContactUs from './pages/ContactUs';
-import Login from './pages/Login';
+// Login removed
 import NotFound from './pages/NotFound';
 import SlapButton from './components/SlapButton';
 
@@ -23,7 +23,6 @@ function App() {
             <Route path="/pomodoro" element={<Pomodoro />} />
             <Route path="/tools" element={<StudyTools />} />
             <Route path="/contact" element={<ContactUs />} />
-            <Route path="/login" element={<Login />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </main>

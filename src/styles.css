@@ -26,19 +26,29 @@ body { font-size: 18px; }
 /* SLAP floating button */
 .slap-button {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
+  right: 28px;
+  bottom: 28px;
   z-index: 9999;
-  width: 64px;
-  height: 64px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
   background: #B20D30;
   color: white;
   border: none;
   display: grid;
   place-items: center;
-  font-weight: 800;
-  box-shadow: 0 12px 30px rgba(178, 13, 48, 0.28);
+  font-weight: 900;
+  font-size: 1.1rem;
+  box-shadow: 0 18px 40px rgba(178, 13, 48, 0.32);
+}
+.cloud-dark { background: linear-gradient(180deg,#6e6e75,#43454a); }
+.ecosystem-rain { position:absolute; inset:60px 0 0; pointer-events:none; }
+.ecosystem-rain::before {
+  content:'';
+  position:absolute; left:0; right:0; top:0; bottom:0;
+  background-image: linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 2px 14px;
+  opacity:0.6;
 }
 
 /* Full screen SLAP modal */

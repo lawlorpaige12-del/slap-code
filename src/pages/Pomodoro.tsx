@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import EcosystemPreview from '../components/EcosystemPreview';
 
 function displayTime(seconds: number) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -76,7 +77,9 @@ function Pomodoro() {
 
       <div className="card">
         <h2>Break Mode</h2>
-        <div className="preview-panel">When break time begins, the ecosystem visual gently changes to help you relax.</div>
+        <div className="preview-panel">
+          <EcosystemPreview weather={mode === 'break' ? 'rainy' : 'sunny'} />
+        </div>
       </div>
     </section>
   );
