@@ -10,12 +10,11 @@ function ContactUs() {
         <div className="card contact-card">
           <h2>Team Contact</h2>
           <ul className="contact-links">
-            <li>Email: <a href="mailto:hello@slapstudy.com">hello@slapstudy.com</a></li>
+            <li>Email: <a href="mailto:slapstudytool@gmail.com">slapstudytool@gmail.com</a></li>
             <li>Instagram: <a href="https://www.instagram.com/slapstudy">@slapstudy</a></li>
-            <li>TikTok: <a href="https://www.tiktok.com/@slapstudy">@slapstudy</a></li>
-            <li>YouTube: <a href="https://www.youtube.com/channel/slapstudy">slAP Study</a></li>
+            <li>TikTok: Coming Soon!</li>
             <li>Discord: Coming soon</li>
-            <li>Reddit: <a href="https://www.reddit.com/r/slAPStudy">/r/slAPStudy</a></li>
+            <li>Reddit: Coming Soon!</li>
           </ul>
         </div>
 

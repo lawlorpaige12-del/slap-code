@@ -61,7 +61,7 @@ function StudyPlanner() {
           <textarea value={courses} onChange={(event) => setCourses(event.target.value)} />
         </label>
         <label>
-          Available study times (example: 2 = 2 hours)
+          Available study times
           <input value={studyWindow} onChange={(event) => setStudyWindow(event.target.value)} />
         </label>
         <label>
