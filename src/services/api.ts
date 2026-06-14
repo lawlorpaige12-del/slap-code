@@ -21,6 +21,7 @@ export type DashboardStats = {
   streak: number;
   xp: number;
   level: number;
+  totalTasks: number;
   upcoming: Array<{ title: string; due: string; priority: 'High' | 'Medium' | 'Low' }>;
   leaderboard: Array<{ name: string; xp: number; studyTime: string; level: number }>;
   ecosystemHealth: 'vibrant' | 'recovering' | 'neglected';
@@ -80,6 +81,7 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   const rawPlan = localStorage.getItem(STORAGE_PLAN_KEY);
   const tasks = rawPlan ? JSON.parse(rawPlan) : [];
   const tasksCompleted = tasks.filter((t: any) => t.completed).length;
+  const totalTasks = tasks.length;
   const totalStudyMins = tasks.reduce((acc: number, t: any) => {
     const m = parseInt((t.duration || '').toString(), 10) || 0;
     return acc + (isNaN(m) ? 0 : m);
@@ -118,6 +120,7 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
     streak,
     xp,
     level,
+    totalTasks,
     upcoming,
     leaderboard,
     ecosystemHealth: 'vibrant',
@@ -180,18 +183,44 @@ export async function generatePlan(input: PlannerInput) {
     'Problem Set',
   ];
 
-  const generated = courseList.flatMap((course, index) => {
-    const activity = baseTasks[index % baseTasks.length];
-    const priority = priorities[input.priority];
-    const durationBase = 30 + index * 10;
-    return {
-      id: `${course}-${activity}`,
-      title: `${course} ${activity}`,
-      duration: `${Math.round(durationBase * priority.multiplier)} min`,
-      xp: Math.round(priority.xp * priority.multiplier),
-      completed: false,
-    };
-  });
+  // Determine total available study slots from weekly availability (if provided)
+  const availability = (input.weeklyAvailability || {}) as WeeklyAvailability;
+  const totalSlots = (Object.keys(availability) as Array<keyof WeeklyAvailability>)
+    .reduce((acc, d) => acc + (Number(availability[d]) || 0), 0);
+
+  const generated: any[] = [];
+  if (totalSlots > 0) {
+    // create up to totalSlots tasks, cycling through courses and activities
+    let i = 0;
+    while (generated.length < totalSlots) {
+      const course = courseList[i % courseList.length] || `Course${(i % courseList.length) + 1}`;
+      const activity = baseTasks[i % baseTasks.length];
+      const priorityObj = priorities[input.priority];
+      const durationBase = 30 + (i % 5) * 10;
+      generated.push({
+        id: `${course}-${activity}-${i}`,
+        title: `${course} ${activity}`,
+        duration: `${Math.round(durationBase * priorityObj.multiplier)} min`,
+        xp: Math.round(priorityObj.xp * priorityObj.multiplier),
+        completed: false,
+      });
+      i += 1;
+    }
+  } else {
+    // fallback: one task per course
+    courseList.forEach((course, index) => {
+      const activity = baseTasks[index % baseTasks.length];
+      const priority = priorities[input.priority];
+      const durationBase = 30 + index * 10;
+      generated.push({
+        id: `${course}-${activity}`,
+        title: `${course} ${activity}`,
+        duration: `${Math.round(durationBase * priority.multiplier)} min`,
+        xp: Math.round(priority.xp * priority.multiplier),
+        completed: false,
+      });
+    });
+  }
 
   // persist tasks and planner input for other parts of the app
   await savePlan(generated);
@@ -219,15 +248,21 @@ export async function fetchCalendarEntries(tasks: PlanTask[]) {
     if (!slots.length) return [];
 
     // Assign tasks to slots in order, wrap if tasks > slots
+    const formatHour = (hour24: number) => {
+      const h = ((hour24 + 11) % 12) + 1;
+      const suffix = hour24 >= 12 ? 'PM' : 'AM';
+      return `${h}:00 ${suffix}`;
+    };
+
     return tasks.map((task, index) => {
       const day = slots[index % slots.length];
-      const timeSlotIndex = Math.floor(index / slots.length) % 6; // choose a slot offset
-      const hour = 18 + timeSlotIndex; // start at 6pm
+      const timeSlotIndex = Math.floor(index / slots.length) % 12; // choose a slot offset
+      const hour = 18 + timeSlotIndex; // start at 6pm and move forward
       return {
         id: task.id,
         day,
         task: task.title,
-        time: `${hour}:00`,
+        time: formatHour(hour),
       };
     });
   } catch (e) {

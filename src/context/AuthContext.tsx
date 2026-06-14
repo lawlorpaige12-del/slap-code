@@ -16,6 +16,7 @@ type Dashboard = {
   streak: number;
   xp: number;
   level: number;
+  totalTasks: number;
   upcoming: Array<{ title: string; due: string; priority: string }>;
   leaderboard: Array<{ name: string; xp: number; studyTime: string; level: number }>;
   ecosystemHealth: 'vibrant' | 'recovering' | 'neglected';

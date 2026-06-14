@@ -16,10 +16,10 @@ function Home() {
         </p>
       </div>
 
-      <div className="stats-grid">
+        <div className="stats-grid">
         <div className="card metric-pill">
           <strong>Tasks Completed</strong>
-          {dashboard ? `${dashboard.tasksCompleted} / 24` : '—'}
+          {dashboard ? `${dashboard.tasksCompleted} / ${dashboard.totalTasks || 0}` : '—'}
         </div>
         <div className="card metric-pill">
           <strong>Total Study Time</strong>
