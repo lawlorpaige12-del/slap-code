@@ -52,6 +52,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [dashboard, setDashboard] = useState<DashboardStats | null>(stored.dashboard);
   const [loading, setLoading] = useState(false);
 
+  const refreshDashboard = async (nextState: SessionState = sessionState) => {
+    setLoading(true);
+    const stats = await computeDashboardStats(
+      nextState.tasks,
+      nextState.plannerInput,
+      nextState.userName
+    );
+    setDashboard(stats);
+    setLoading(false);
+  };
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ sessionState, dashboard }));
@@ -59,26 +70,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [sessionState, dashboard]);
 
   const setUserName = (name: string) => {
-    setSessionState((prev) => ({ ...prev, userName: name }));
+    setSessionState((prev) => {
+      const next = { ...prev, userName: name };
+      void refreshDashboard(next);
+      return next;
+    });
   };
 
   const setTasks = (tasks: PlanTask[]) => {
-    setSessionState((prev) => ({ ...prev, tasks }));
+    setSessionState((prev) => {
+      const next = { ...prev, tasks };
+      void refreshDashboard(next);
+      return next;
+    });
   };
 
   const setPlannerInput = (input: PlannerInput) => {
-    setSessionState((prev) => ({ ...prev, plannerInput: input }));
-  };
-
-  const refreshDashboard = async () => {
-    setLoading(true);
-    const stats = await computeDashboardStats(
-      sessionState.tasks,
-      sessionState.plannerInput,
-      sessionState.userName
-    );
-    setDashboard(stats);
-    setLoading(false);
+    setSessionState((prev) => {
+      const next = { ...prev, plannerInput: input };
+      void refreshDashboard(next);
+      return next;
+    });
   };
 
   const awardXp = (amount: number) => {
@@ -97,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUserName,
         setTasks,
         setPlannerInput,
-        refreshDashboard,
+        refreshDashboard: async () => refreshDashboard(sessionState),
         awardXp,
       }}
     >

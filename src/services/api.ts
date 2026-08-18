@@ -5,23 +5,26 @@ function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export type WeeklyAvailability = {
-  Mon: number | null;
-  Tue: number | null;
-  Wed: number | null;
-  Thu: number | null;
-  Fri: number | null;
-  Sat: number | null;
-  Sun: number | null;
+export type Priority = 'High' | 'Medium' | 'Low';
+
+export type PlannerCourse = {
+  id: string;
+  name: string;
+  examDate: string;
+  priority: Priority;
 };
+
+export type WeeklyAvailability = Record<string, number | null>;
 
 export type PlannerInput = {
   studyWindow: string;
-  courses: string;
+  courses: PlannerCourse[] | string;
   nextExam: string;
-  priority: 'High' | 'Medium' | 'Low';
+  priority: Priority;
   weeklyAvailability: WeeklyAvailability;
 };
+
+export type ToolKey = 'flashcards' | 'summary' | 'quiz' | 'studyguide';
 
 export type PlanTask = {
   id: string;
@@ -29,6 +32,9 @@ export type PlanTask = {
   duration: string;
   xp: number;
   completed: boolean;
+  course: string;
+  tool: ToolKey;
+  toolLabel: string;
 };
 
 export type DashboardStats = {
@@ -38,12 +44,98 @@ export type DashboardStats = {
   xp: number;
   level: number;
   totalTasks: number;
-  upcoming: Array<{ title: string; due: string; priority: 'High' | 'Medium' | 'Low' }>;
+  upcoming: Array<{ title: string; due: string; priority: Priority }>;
   leaderboard: Array<{ name: string; xp: number; studyTime: string; level: number }>;
   ecosystemHealth: 'vibrant' | 'recovering' | 'neglected';
 };
 
-// Compute dashboard stats from tasks and planner input (no storage)
+const PRIORITY_WEIGHTS: Record<Priority, number> = {
+  High: 3,
+  Medium: 2,
+  Low: 1,
+};
+
+const TOOL_LABELS: Record<ToolKey, string> = {
+  flashcards: 'Flashcards',
+  summary: 'Review Notes',
+  quiz: 'Practice Questions',
+  studyguide: 'Study Guide Review',
+};
+
+const TOOL_LINK_LABELS: Record<ToolKey, string> = {
+  flashcards: 'Open Flashcard Generator',
+  summary: 'Open Note Summarizer',
+  quiz: 'Open Quiz & Practice Question Generator',
+  studyguide: 'Open Study Guides',
+};
+
+const toMinutes = (time: string) => {
+  if (!time) return 0;
+  const [rawHour, rawMinute] = time.split(':');
+  const hour = Number(rawHour) || 0;
+  const minute = Number(rawMinute) || 0;
+  return hour * 60 + minute;
+};
+
+const roundToNearestFive = (minutes: number) => Math.max(5, Math.round(minutes / 5) * 5);
+
+const formatMinutes = (minutes: number) => {
+  const total = Math.max(0, minutes);
+  const hours = Math.floor(total / 60);
+  const mins = total % 60;
+  if (hours && mins) return `${hours}h ${mins}m`;
+  if (hours) return `${hours}h`;
+  return `${mins || 0}m`;
+};
+
+const normalizeCourses = (courses: PlannerCourse[] | string | undefined): PlannerCourse[] => {
+  if (Array.isArray(courses)) {
+    return courses
+      .map((course) => ({
+        id: course.id || `${course.name}-${Math.random().toString(36).slice(2, 9)}`,
+        name: course.name.trim(),
+        examDate: course.examDate || '',
+        priority: course.priority || 'Medium',
+      }))
+      .filter((course) => course.name);
+  }
+
+  if (typeof courses === 'string') {
+    return courses
+      .split(',')
+      .map((course) => course.trim())
+      .filter(Boolean)
+      .map((name, index) => ({
+        id: `legacy-course-${index}`,
+        name,
+        examDate: '',
+        priority: 'Medium',
+      }));
+  }
+
+  return [];
+};
+
+const getExamUrgencyMultiplier = (examDate: string) => {
+  if (!examDate) return 1;
+
+  const date = new Date(examDate);
+  if (Number.isNaN(date.getTime())) return 1;
+
+  const diffDays = Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 7) return 1.8;
+  if (diffDays <= 14) return 1.5;
+  if (diffDays <= 30) return 1.25;
+  return 1;
+};
+
+const calculateWeeklyAvailabilityMinutes = (weeklyAvailability: WeeklyAvailability | undefined): number => {
+  if (!weeklyAvailability) return 0;
+
+  const entries = Object.values(weeklyAvailability) as Array<number | null>;
+  return entries.reduce<number>((total, value) => total + (Number(value ?? 0) || 0), 0);
+};
+
 export async function computeDashboardStats(
   tasks: PlanTask[],
   plannerInput: PlannerInput | null,
@@ -53,171 +145,117 @@ export async function computeDashboardStats(
 
   const tasksCompleted = tasks.filter((t) => t.completed).length;
   const totalTasks = tasks.length;
+  const totalStudyMinutes = tasks.reduce((total, task) => total + (Number(task.duration.replace(/\D/g, '')) || 0), 0);
+  const xp = tasks.filter((t) => t.completed).reduce((total, task) => total + (task.xp || 0), 0);
 
-  // Calculate total study time in minutes from task durations
-  const totalStudyMins = tasks.reduce((acc, t) => {
-    const m = parseInt(t.duration.replace(/\D/g, ''), 10) || 0;
-    return acc + (isNaN(m) ? 0 : m);
-  }, 0);
-  const totalStudyTime = `${Math.floor(totalStudyMins / 60)}h ${totalStudyMins % 60}m`;
+  const upcoming: Array<{ title: string; due: string; priority: Priority }> = [];
+  const courses = plannerInput ? normalizeCourses(plannerInput.courses) : [];
+  const sorted = [...courses].filter((course) => course.examDate).sort((a, b) => new Date(a.examDate).getTime() - new Date(b.examDate).getTime());
 
-  // Calculate XP from completed tasks
-  const xp = tasks.filter((t) => t.completed).reduce((acc, t) => acc + (t.xp || 0), 0);
-
-  // Build upcoming exams from planner input if available
-  const upcoming: Array<{ title: string; due: string; priority: 'High' | 'Medium' | 'Low' }> = [];
-  if (plannerInput?.nextExam) {
-    try {
-      const then = new Date(plannerInput.nextExam);
-      if (!Number.isNaN(then.getTime())) {
-        const diff = Math.ceil((then.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-        if (diff >= 0) {
-          upcoming.push({
-            title: 'Next Exam',
-            due: `${diff} days`,
-            priority: plannerInput.priority,
-          });
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
+  if (sorted[0]) {
+    const date = new Date(sorted[0].examDate);
+    const diffDays = Math.max(0, Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+    upcoming.push({
+      title: sorted[0].name,
+      due: `${diffDays} days`,
+      priority: sorted[0].priority,
+    });
   }
 
   return {
     tasksCompleted,
-    totalStudyTime,
-    streak: 0, // No persistent streak tracking in stateless app
+    totalStudyTime: formatMinutes(totalStudyMinutes),
+    streak: 0,
     xp,
-    level: 1, // No persistent levels in stateless app
+    level: 1,
     totalTasks,
     upcoming,
-    leaderboard: userName ? [{ name: userName, xp, studyTime: totalStudyTime, level: 1 }] : [],
+    leaderboard: userName ? [{ name: userName, xp, studyTime: formatMinutes(totalStudyMinutes), level: 1 }] : [],
     ecosystemHealth: 'vibrant',
   };
 }
 
-// Generate plan from user input (no storage)
 export async function generatePlan(input: PlannerInput): Promise<PlanTask[]> {
-  await delay(300);
+  await delay(250);
 
-  const courseList = input.courses
-    .split(',')
-    .map((course) => course.trim())
-    .filter(Boolean);
+  const courses = normalizeCourses(input.courses);
+  if (!courses.length) return [];
 
-  if (!courseList.length) return [];
+  const weeklyMinutes = calculateWeeklyAvailabilityMinutes(input.weeklyAvailability);
+  const totalAvailableMinutes = Math.max(30, weeklyMinutes || courses.length * 90);
 
-  const priorities = {
-    High: { multiplier: 1.4, xp: 120 },
-    Medium: { multiplier: 1.1, xp: 90 },
-    Low: { multiplier: 0.9, xp: 70 },
-  };
+  const orderedCourses = [...courses].sort((a, b) => {
+    const weightA = PRIORITY_WEIGHTS[a.priority] * getExamUrgencyMultiplier(a.examDate);
+    const weightB = PRIORITY_WEIGHTS[b.priority] * getExamUrgencyMultiplier(b.examDate);
+    return weightB - weightA;
+  });
 
-  const taskDifficultyMap: Record<string, number> = {
-    'Practice Test': 35,
-    'Review Notes': 12,
-    'Concept Drill': 18,
-    'Flashcard Sprint': 10,
-    'Problem Set': 25,
-    'Essay Outline': 20,
-  };
+  const totalWeight = orderedCourses.reduce((sum, course) => {
+    return sum + PRIORITY_WEIGHTS[course.priority] * getExamUrgencyMultiplier(course.examDate);
+  }, 0) || orderedCourses.length;
 
-  const baseTasks = [
-    'Practice Test',
-    'Review Notes',
-    'Concept Drill',
-    'Flashcard Sprint',
-    'Problem Set',
-  ];
-
-  const availability = (input.weeklyAvailability || {}) as WeeklyAvailability;
-  const totalSlots = (Object.keys(availability) as Array<keyof WeeklyAvailability>).reduce(
-    (acc, d) => acc + (Number(availability[d]) || 0),
-    0
+  const targetTaskCount = Math.max(
+    1,
+    Math.min(12, Math.round(totalAvailableMinutes / 45))
   );
 
   const generated: PlanTask[] = [];
+  let assignedMinutes = 0;
 
-  if (totalSlots > 0) {
-    let i = 0;
-    while (generated.length < totalSlots) {
-      const course = courseList[i % courseList.length];
-      const activity = baseTasks[i % baseTasks.length];
-      const priorityObj = priorities[input.priority];
-      const durationBase = 30 + (i % 5) * 10;
-      const xpBase = taskDifficultyMap[activity] || 15;
-      generated.push({
-        id: `${course}-${activity}-${i}`,
-        title: `${course} ${activity}`,
-        duration: `${Math.round(durationBase * priorityObj.multiplier)} min`,
-        xp: Math.max(5, Math.round(xpBase * priorityObj.multiplier)),
+  orderedCourses.forEach((course, courseIndex) => {
+    const toolPool: ToolKey[] = course.priority === 'High'
+      ? ['flashcards', 'quiz', 'studyguide', 'summary']
+      : course.priority === 'Medium'
+        ? ['summary', 'flashcards', 'quiz']
+        : ['summary', 'flashcards'];
+
+    const courseWeight = PRIORITY_WEIGHTS[course.priority] * getExamUrgencyMultiplier(course.examDate);
+    const share = totalWeight ? courseWeight / totalWeight : 1 / orderedCourses.length;
+    const taskCountForCourse = Math.max(
+      1,
+      Math.min(4, Math.round(share * targetTaskCount + (orderedCourses.length > 1 ? 0.3 : 0)))
+    );
+
+    for (let taskIndex = 0; taskIndex < taskCountForCourse; taskIndex += 1) {
+      const tool = toolPool[(taskIndex + courseIndex) % toolPool.length];
+      const remainingBudget = Math.max(15, totalAvailableMinutes - assignedMinutes);
+      const durationBase = Math.min(60, Math.max(15, Math.round(remainingBudget / Math.max(1, taskCountForCourse - taskIndex + 1))));
+      const duration = roundToNearestFive(durationBase * (tool === 'studyguide' ? 0.9 : tool === 'quiz' ? 1.1 : 1));
+      const xp = Math.round(duration * (tool === 'quiz' ? 2.4 : tool === 'studyguide' ? 2.1 : tool === 'summary' ? 1.9 : 1.7) + PRIORITY_WEIGHTS[course.priority] * 12);
+
+      const title = `${course.name} ${TOOL_LABELS[tool]}`;
+      const task: PlanTask = {
+        id: `${course.id}-${tool}-${taskIndex}`,
+        title,
+        duration: `${duration} min`,
+        xp,
         completed: false,
-      });
-      i += 1;
-    }
-  } else {
-    courseList.forEach((course, index) => {
-      const activity = baseTasks[index % baseTasks.length];
-      const priority = priorities[input.priority];
-      const durationBase = 30 + index * 10;
-      const xpBase = taskDifficultyMap[activity] || 15;
-      generated.push({
-        id: `${course}-${activity}`,
-        title: `${course} ${activity}`,
-        duration: `${Math.round(durationBase * priority.multiplier)} min`,
-        xp: Math.max(5, Math.round(xpBase * priority.multiplier)),
-        completed: false,
-      });
-    });
-  }
-
-  return generated;
-}
-
-// Generate calendar entries from tasks and availability (no storage)
-export async function fetchCalendarEntries(
-  tasks: PlanTask[],
-  plannerInput: PlannerInput | null
-) {
-  await delay(120);
-
-  if (!plannerInput || !tasks.length) return [];
-
-  try {
-    const availability = (plannerInput.weeklyAvailability || {}) as WeeklyAvailability;
-    const dayOrder: Array<keyof WeeklyAvailability> = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-    // Build slots array where each day appears a number of times equal to available hours
-    const slots: string[] = [];
-    dayOrder.forEach((d) => {
-      const hours = Number(availability[d]) || 0;
-      const count = Math.max(0, Math.round(hours));
-      for (let i = 0; i < count; i++) slots.push(d);
-    });
-
-    if (!slots.length) return [];
-
-    // Format time helper
-    const formatHour = (hour24: number) => {
-      const h = ((hour24 + 11) % 12) + 1;
-      const suffix = hour24 >= 12 ? 'PM' : 'AM';
-      return `${h}:00 ${suffix}`;
-    };
-
-    // Assign tasks to day/time slots
-    return tasks.map((task, index) => {
-      const day = slots[index % slots.length];
-      const timeSlotIndex = Math.floor(index / slots.length) % 12;
-      const hour = 18 + timeSlotIndex;
-      return {
-        id: task.id,
-        day,
-        task: task.title,
-        time: formatHour(hour),
+        course: course.name,
+        tool,
+        toolLabel: TOOL_LINK_LABELS[tool],
       };
-    });
-  } catch (e) {
-    return [];
+
+      if (assignedMinutes + duration <= totalAvailableMinutes || generated.length === 0) {
+        generated.push(task);
+        assignedMinutes += duration;
+      }
+    }
+  });
+
+  if (!generated.length) {
+    const fallbackCourse = orderedCourses[0];
+    const fallbackTask: PlanTask = {
+      id: `${fallbackCourse.id}-flashcards-0`,
+      title: `${fallbackCourse.name} Flashcards`,
+      duration: '25 min',
+      xp: 40,
+      completed: false,
+      course: fallbackCourse.name,
+      tool: 'flashcards',
+      toolLabel: TOOL_LINK_LABELS.flashcards,
+    };
+    generated.push(fallbackTask);
   }
+
+  return generated.slice(0, Math.min(12, generated.length));
 }

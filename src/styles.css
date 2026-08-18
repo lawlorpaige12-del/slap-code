@@ -60,7 +60,7 @@ body { font-size: 18px; }
   background: rgba(0,0,0,0.55);
 }
 .slap-modal-full-inner {
-  background: var(--surface);
+  background: #D16666;
   width: 100%;
   height: 100%;
   display: flex;
@@ -71,7 +71,7 @@ body { font-size: 18px; }
 .slap-modal-message-big {
   font-size: 4rem;
   font-weight: 900;
-  color: var(--primary);
+  color: #000000;
   text-align: center;
 }
 .slap-modal-ok-full {
@@ -84,13 +84,116 @@ body { font-size: 18px; }
   font-weight: 700;
 }
 
-/* Weekly availability grid */
-.weekly-grid {
+.availability-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  gap: 1rem;
+}
+
+.availability-day {
+  border: 1px solid #dfe6ee;
+  border-radius: 18px;
+  background: #f7f9fb;
+  padding: 1rem;
+}
+
+.availability-header,
+.course-header,
+.task-actions,
+.task-details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.availability-controls {
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.time-group {
+  display: grid;
   gap: 0.5rem;
 }
-.weekly-grid label { font-size: 0.85rem; }
+
+.time-select-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.not-available {
+  margin-top: 0.75rem;
+  color: #5c6977;
+  font-weight: 700;
+}
+
+.availability-summary {
+  margin: 1rem 0 1.5rem;
+  padding: 0.85rem 1rem;
+  background: #edf2f7;
+  border-radius: 14px;
+}
+
+.course-list {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.course-card {
+  background: #f7f9fb;
+  border: 1px solid #dfe6ee;
+  border-radius: 18px;
+  padding: 1rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.course-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.ghost-button,
+.secondary-button {
+  border: 1px solid #dfe6ee;
+  background: #fff;
+  color: #2c4251;
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  font-weight: 700;
+}
+
+.secondary-button {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task-card {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.task-link {
+  width: fit-content;
+}
+
+.task-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
 
 /* Pomodoro styles */
 .timer-panel { display: grid; gap: 1rem; align-items: center; }
@@ -268,8 +371,7 @@ a:focus-visible {
 .stats-grid,
 .task-grid,
 .metric-grid,
-.tool-grid,
-.calendar-list {
+.tool-grid {
   display: grid;
   gap: 1rem;
 }
@@ -384,10 +486,6 @@ a:focus-visible {
 .planner-status {
   margin-top: 0.75rem;
   color: #576774;
-}
-
-.calendar-list {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .error-text {

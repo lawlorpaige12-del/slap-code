@@ -42,7 +42,7 @@ function SlapButton() {
         onClick={handleOpen}
         aria-label="Open slAP motivation"
       >
-        slAP
+        SLAP!
       </button>
 
       {open && (

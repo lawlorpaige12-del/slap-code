@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 type ToolKey = 'flashcards' | 'summary' | 'quiz' | 'studyguide';
 
@@ -420,20 +421,23 @@ const buildStudyGuide = (course: string, unit: string, material: string): StudyG
 };
 
 function StudyTools() {
-  const [selectedTool, setSelectedTool] = useState<ToolKey>('flashcards');
-  const [flashTopic, setFlashTopic] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const toolFromUrl = searchParams.get('tool');
+  const courseFromUrl = searchParams.get('course');
+  const [selectedTool, setSelectedTool] = useState<ToolKey>(toolFromUrl === 'summary' || toolFromUrl === 'quiz' || toolFromUrl === 'studyguide' || toolFromUrl === 'flashcards' ? toolFromUrl : 'flashcards');
+  const [flashTopic, setFlashTopic] = useState(courseFromUrl || '');
   const [flashMaterial, setFlashMaterial] = useState('');
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [flashIndex, setFlashIndex] = useState(0);
   const [flashFlipped, setFlashFlipped] = useState(false);
   const [flashError, setFlashError] = useState('');
 
-  const [summaryTopic, setSummaryTopic] = useState('');
+  const [summaryTopic, setSummaryTopic] = useState(courseFromUrl || '');
   const [summaryMaterial, setSummaryMaterial] = useState('');
   const [summary, setSummary] = useState<SummaryResult | null>(null);
   const [summaryError, setSummaryError] = useState('');
 
-  const [quizTopic, setQuizTopic] = useState('');
+  const [quizTopic, setQuizTopic] = useState(courseFromUrl || '');
   const [quizMaterial, setQuizMaterial] = useState('');
   const [quizCount, setQuizCount] = useState(4);
   const [quizDifficulty, setQuizDifficulty] = useState('Medium');
@@ -444,7 +448,7 @@ function StudyTools() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizError, setQuizError] = useState('');
 
-  const [guideCourse, setGuideCourse] = useState('');
+  const [guideCourse, setGuideCourse] = useState(courseFromUrl || '');
   const [guideUnit, setGuideUnit] = useState('');
   const [guideMaterial, setGuideMaterial] = useState('');
   const [guide, setGuide] = useState<StudyGuide | null>(null);
@@ -456,6 +460,19 @@ function StudyTools() {
     quiz: [] as QuizQuestion[],
     guide: null as StudyGuide | null,
   });
+
+  useEffect(() => {
+    const tool = toolFromUrl === 'summary' || toolFromUrl === 'quiz' || toolFromUrl === 'studyguide' || toolFromUrl === 'flashcards' ? toolFromUrl : 'flashcards';
+    setSelectedTool(tool);
+
+    const course = courseFromUrl || '';
+    if (course) {
+      setFlashTopic(course);
+      setSummaryTopic(course);
+      setQuizTopic(course);
+      setGuideCourse(course);
+    }
+  }, [toolFromUrl, courseFromUrl]);
 
   useEffect(() => {
     try {
@@ -599,7 +616,12 @@ function StudyTools() {
       key={tool.id}
       type="button"
       className={`tool-card ${selectedTool === tool.id ? 'tool-card-active' : ''}`}
-      onClick={() => setSelectedTool(tool.id)}
+      onClick={() => {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('tool', tool.id);
+        setSearchParams(nextParams);
+        setSelectedTool(tool.id);
+      }}
       aria-pressed={selectedTool === tool.id}
     >
       <strong>{tool.title}</strong>
