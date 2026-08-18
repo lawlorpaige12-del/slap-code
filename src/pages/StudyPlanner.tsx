@@ -7,6 +7,14 @@ function StudyPlanner() {
   const { setTasks, setPlannerInput, refreshDashboard } = auth;
   const { tasks } = auth.sessionState;
 
+  const handleTaskToggle = async (task: PlanTask) => {
+    const updated = tasks.map((t) =>
+      t.id === task.id ? { ...t, completed: !t.completed } : t
+    );
+    setTasks(updated);
+    await refreshDashboard();
+  };
+
   const [studyWindow, setStudyWindow] = useState('');
   const [courses, setCourses] = useState('');
   const [nextExam, setNextExam] = useState('');
@@ -115,13 +123,7 @@ function StudyPlanner() {
                   <button
                     className="submit-button"
                     type="button"
-                    onClick={async () => {
-                      const updated = tasks.map((t) =>
-                        t.id === task.id ? { ...t, completed: !t.completed } : t
-                      );
-                      setTasks(updated);
-                      await refreshDashboard();
-                    }}
+                    onClick={() => handleTaskToggle(task)}
                   >
                     {task.completed ? 'Mark Incomplete' : 'Mark Complete'}
                   </button>

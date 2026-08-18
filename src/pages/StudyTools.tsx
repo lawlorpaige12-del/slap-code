@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
 
 type ToolKey = 'flashcards' | 'summary' | 'quiz' | 'studyguide';
 
@@ -80,73 +79,199 @@ const shuffleArray = <T,>(items: T[]) => {
   return copy;
 };
 
+const stopWords = new Set([
+  'the','a','an','and','or','of','to','in','for','on','with','is','are','be','this','that','these','those','as','at','by','from','it','its','itself','they','them','their','there','then','if','when','while','because','about','into','over','under','after','before','during','how','what','why','which','who','where','when','not','more','most','some','any','all','can','could','should','would','may','might','has','have','had','do','does','did','was','were','than','also','very','just','each','such','as','but','from','your','you','we','our','us','into'
+]);
+
 const pickTopicLabel = (topic: string, material: string) => {
   const value = normalizeText(topic || material || 'Study topic');
   return value.length > 70 ? `${value.slice(0, 67)}…` : value;
 };
 
-const extractFacts = (topic: string, material: string) => {
-  const source = `${topic} ${material}`.replace(/\s+/g, ' ').trim();
-  const sentences = source
+const extractSentences = (text: string) => {
+  const rawText = normalizeText(text);
+  if (!rawText) return [];
+  return rawText
     .split(/(?<=[.!?])\s+|\n+/)
     .map((entry) => normalizeText(entry).replace(/^[\-•\*\d.\s]+/, ''))
-    .filter((entry) => entry.length > 24 && entry.length < 220)
+    .filter((entry) => entry.length > 18 && entry.length < 260)
     .map((entry) => entry.replace(/[\s]+$/, ''));
+};
 
-  if (sentences.length === 0) {
-    const fallbackTopic = normalizeText(topic || 'study guide');
-    return [
-      `${fallbackTopic} focuses on the key ideas students need to recall and apply.` ,
-      `Students should connect the main concept to concrete examples and practice questions.`,
-      `Reviewing definitions, relationships, and common mistakes helps improve retention.`,
-    ];
+const dedupe = (items: string[]) => Array.from(new Set(items.map((item) => normalizeText(item)).filter(Boolean)));
+
+const getMaterialSignals = (topic: string, material: string) => {
+  const combined = normalizeText(`${topic} ${material}`);
+  const sentences = extractSentences(combined);
+  const terms = combined.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((word) => word.length > 3 && !stopWords.has(word));
+  const termCounts = new Map<string, number>();
+
+  terms.forEach((term) => {
+    const next = termCounts.get(term) ?? 0;
+    termCounts.set(term, next + 1);
+  });
+
+  const importantTerms = Array.from(termCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([term]) => term)
+    .slice(0, 12);
+
+  const concepts = dedupe([
+    ...sentences.filter((sentence) => /is|are|means|refers|defines|includes|contains|involves|represents|occurs|results|creates|causes|requires|depends|involves|supports/i.test(sentence)).slice(0, 4),
+    ...sentences.filter((sentence) => importantTerms.some((term) => sentence.toLowerCase().includes(term))).slice(0, 8),
+    ...sentences.filter((sentence) => sentence.length > 60).slice(0, 4),
+  ]).slice(0, 10);
+
+  const definitions = dedupe(sentences.filter((sentence) => /means|is|are|refers|defines|called|known as|represents|includes|consists of/i.test(sentence)).slice(0, 6));
+  const processes = dedupe(sentences.filter((sentence) => /first|next|then|finally|step|sequence|process|before|after|during|followed by|in order/i.test(sentence)).slice(0, 6));
+  const relationships = dedupe(sentences.filter((sentence) => /because|therefore|causes|leads to|results in|depends on|differs from|compared to|while|whereas|affects|increases|decreases|influences/i.test(sentence)).slice(0, 6));
+  const examples = dedupe(sentences.filter((sentence) => /example|such as|for example|when|if|illustrates|demonstrates/i.test(sentence)).slice(0, 6));
+  const formulas = dedupe(sentences.filter((sentence) => /=|\+|\-|\*|\/|\^|\(|\)/.test(sentence) && /formula|equation|mass|velocity|force|speed|energy|pressure|volume|temperature|area|slope|rate|momentum/i.test(sentence)).slice(0, 6));
+
+  return {
+    concepts,
+    definitions,
+    processes,
+    relationships,
+    examples,
+    formulas,
+    importantTerms,
+  };
+};
+
+const qualityCheckCard = (front: string, back: string) => {
+  if (!front || !back) return false;
+  if (front.length < 12 || back.length < 12) return false;
+  if (front === back) return false;
+  if (front.toLowerCase().includes('random') || back.toLowerCase().includes('random')) return false;
+  return true;
+};
+
+const generateQuestionFromConcept = (concept: string, kind: 'definition' | 'comparison' | 'process' | 'cause' | 'application') => {
+  const cleanConcept = concept.replace(/[.]+$/, '').trim();
+  const shortLabel = cleanConcept.split(/\s+/).slice(0, 7).join(' ');
+
+  switch (kind) {
+    case 'definition':
+      return {
+        front: `What is the main idea behind ${shortLabel}?`,
+        back: cleanConcept,
+      };
+    case 'comparison':
+      return {
+        front: `How does ${shortLabel} differ from a related idea in this topic?`,
+        back: cleanConcept,
+      };
+    case 'process':
+      return {
+        front: `What is the correct sequence or process for ${shortLabel}?`,
+        back: cleanConcept,
+      };
+    case 'cause':
+      return {
+        front: `Why does ${shortLabel} matter in this material?`,
+        back: cleanConcept,
+      };
+    case 'application':
+      return {
+        front: `When would students use or apply ${shortLabel}?`,
+        back: cleanConcept,
+      };
+    default:
+      return {
+        front: `What is the key concept represented by ${shortLabel}?`,
+        back: cleanConcept,
+      };
   }
-
-  const uniqueFacts = Array.from(new Set(sentences));
-  return uniqueFacts.slice(0, 12);
 };
 
 const buildFlashcards = (topic: string, material: string): Flashcard[] => {
-  const facts = extractFacts(topic, material);
+  const signals = getMaterialSignals(topic, material);
+  const candidates = dedupe([
+    ...signals.definitions,
+    ...signals.concepts,
+    ...signals.relationships,
+    ...signals.processes,
+    ...signals.examples,
+  ]);
 
-  return facts.slice(0, 6).map((fact, index) => {
-    const cleanFact = fact.replace(/[.]+$/, '');
-    const words = cleanFact.split(' ');
-    const keyPhrase = words.slice(0, Math.min(words.length, 7)).join(' ');
-    const question = /is|are|means|refers|defines|includes|contains|involves/i.test(cleanFact)
-      ? `What does ${keyPhrase} mean?`
-      : /because|causes|results|requires|depends|happens|occurs|influences|leads|affects/i.test(cleanFact)
-        ? `Why does ${keyPhrase} matter?`
-        : `What is the key idea behind ${keyPhrase}?`;
+  const deck: Flashcard[] = [];
+  const types: Array<'definition' | 'comparison' | 'process' | 'cause' | 'application'> = ['definition', 'cause', 'comparison', 'process', 'application'];
 
-    return {
-      id: createId(`flash-${index}`),
-      front: question,
-      back: cleanFact,
-    };
-  });
+  for (let index = 0; index < candidates.length && deck.length < 6; index += 1) {
+    const candidate = candidates[index];
+    const kind = types[index % types.length];
+    const generated = generateQuestionFromConcept(candidate, kind);
+    const front = generated.front;
+    const back = normalizeText(generated.back || candidate);
+
+    if (!qualityCheckCard(front, back)) continue;
+
+    const duplicateFront = deck.some((card) => card.front === front || card.back === back);
+    if (!duplicateFront) {
+      deck.push({
+        id: createId(`flash-${index}`),
+        front,
+        back,
+      });
+    }
+  }
+
+  if (deck.length === 0) {
+    const fallback = normalizeText(topic || 'Key concept') || 'Key concept';
+    return [
+      {
+        id: createId('flash-fallback-1'),
+        front: `What is the main idea behind ${fallback}?`,
+        back: 'The most important concept is the central idea students should understand, connect to examples, and be able to explain clearly.',
+      },
+      {
+        id: createId('flash-fallback-2'),
+        front: `Why does ${fallback} matter for understanding the larger topic?`,
+        back: 'It matters because it connects the details in the notes to the broader concept and helps students explain the material accurately.',
+      },
+    ];
+  }
+
+  return deck;
 };
 
 const buildSummary = (topic: string, material: string): SummaryResult => {
-  const facts = extractFacts(topic, material);
-  const topicName = pickTopicLabel(topic, material);
-  const mainConcepts = facts.slice(0, 3);
-  const definitions = facts.filter((fact) => /is|are|means|refers|defines|called|known/i.test(fact)).slice(0, 3);
-  const keyFacts = facts.slice(3, 6);
-  const relationships = facts
-    .filter((fact) => /because|results|causes|affects|influences|depends|connects|relates/i.test(fact))
-    .slice(0, 2);
-  const examples = facts.filter((fact) => /example|such as|for example|when|if/i.test(fact)).slice(0, 2);
+  const signals = getMaterialSignals(topic, material);
+  const depth = material.length > 2000 ? 6 : material.length > 1000 ? 5 : material.length > 500 ? 4 : 3;
+
+  const sections: SummarySection[] = [
+    {
+      title: 'Main concepts',
+      items: signals.concepts.slice(0, Math.max(2, depth - 1)),
+    },
+    {
+      title: 'Key terms and definitions',
+      items: signals.definitions.slice(0, Math.max(2, depth - 1)),
+    },
+  ];
+
+  if (signals.processes.length) {
+    sections.push({ title: 'Important processes', items: signals.processes.slice(0, Math.max(2, depth - 2)) });
+  }
+
+  if (signals.relationships.length) {
+    sections.push({ title: 'Relationships and cause/effect', items: signals.relationships.slice(0, Math.max(2, depth - 2)) });
+  }
+
+  if (signals.examples.length) {
+    sections.push({ title: 'Examples', items: signals.examples.slice(0, Math.max(2, depth - 2)) });
+  }
+
+  if (signals.formulas.length) {
+    sections.push({ title: 'Formulas and equations', items: signals.formulas.slice(0, Math.max(2, depth - 2)) });
+  }
+
+  const overviewText = normalizeText(`${topic || 'This topic'} ${material}`) || 'This summary reflects the most important ideas in the study material.';
 
   return {
-    overview: `This summary for ${topicName} focuses on the key ideas, definitions, and relationships students are most likely to need in class or during review.`,
-    sections: [
-      { title: 'Main concepts', items: mainConcepts.length ? mainConcepts : ['The topic centers on the most important idea students should understand and apply.'] },
-      { title: 'Important definitions', items: definitions.length ? definitions : ['Definitions should be memorized alongside examples so students can apply them accurately.'] },
-      { title: 'Key facts', items: keyFacts.length ? keyFacts : ['Key facts should be reviewed repeatedly and connected to the central concept.'] },
-      { title: 'Relationships between concepts', items: relationships.length ? relationships : ['The main idea is strengthened when students see how it connects to related terms, steps, or consequences.'] },
-      { title: 'Examples to remember', items: examples.length ? examples : ['Use one or two concrete examples to connect abstract ideas to a real situation.'] },
-    ],
+    overview: `This summary focuses on the major ideas, definitions, and relationships in ${pickTopicLabel(topic, material)}. It is organized to help you review what matters most rather than simply restating the notes verbatim.`,
+    sections: sections.length ? sections : [{ title: 'Main ideas', items: [overviewText] }],
   };
 };
 
@@ -157,40 +282,49 @@ const buildQuizQuestions = (
   difficulty: string,
   type: QuizType
 ): QuizQuestion[] => {
-  const facts = extractFacts(topic, material);
-  const sourceFacts = facts.length ? facts : [`${topic || 'This subject'} has several core ideas worth reviewing.`];
+  const signals = getMaterialSignals(topic, material);
+  const conceptPool = dedupe([
+    ...signals.definitions,
+    ...signals.concepts,
+    ...signals.relationships,
+    ...signals.processes,
+    ...signals.examples,
+  ]);
 
+  const basePool = conceptPool.length ? conceptPool : [
+    `${topic || 'This topic'} includes the core ideas students need to know for the unit.`,
+    `The strongest answers connect the main concept to evidence, examples, and accurate reasoning.`,
+    `Students should be able to explain the idea in a clear, specific way.`,
+  ];
+
+  const questionCount = Math.min(10, Math.max(1, count));
   const questions: QuizQuestion[] = [];
 
-  for (let index = 0; index < Math.max(1, count); index += 1) {
-    const fact = sourceFacts[index % sourceFacts.length];
+  for (let index = 0; index < questionCount; index += 1) {
+    const concept = basePool[index % basePool.length];
     const questionType = type === 'mixed'
       ? (index % 3 === 0 ? 'multiple-choice' : index % 3 === 1 ? 'true-false' : 'short-answer')
       : type;
 
     if (questionType === 'multiple-choice') {
       const distractors = shuffleArray(
-        sourceFacts.filter((entry) => entry !== fact).slice(0, 3).length
-          ? sourceFacts.filter((entry) => entry !== fact).slice(0, 3)
-          : [
-              `The topic is primarily about making random guesses without reviewing the material.`,
-              `The main idea is unrelated to the course concept and should be ignored.`,
-              `The most likely answer is simply to copy the notes word for word without thinking.`,
-            ]
-      );
+        basePool.filter((entry) => entry !== concept)
+      ).slice(0, 3);
 
-      const options = shuffleArray([fact, ...distractors.slice(0, 3)]);
+      const options = shuffleArray([concept, ...distractors.slice(0, 3)]);
       questions.push({
         id: createId(`quiz-${index}`),
         type: 'multiple-choice',
-        prompt: `Which statement best reflects the most important idea in ${pickTopicLabel(topic, material)} at ${difficulty.toLowerCase()} difficulty?`,
+        prompt: `Which statement best explains the central idea in ${pickTopicLabel(topic, material)} at ${difficulty.toLowerCase()} difficulty?`,
         options,
-        correctAnswer: fact,
-        explanation: `${fact} is the best answer because it directly captures the central concept and matches the evidence in the study material.`,
+        correctAnswer: concept,
+        explanation: `${concept} is correct because it reflects the key idea or supporting evidence from the material and is the most accurate explanation of the concept.`,
       });
     } else if (questionType === 'true-false') {
       const isTrue = index % 2 === 0;
-      const statement = isTrue ? fact : `The main idea in ${pickTopicLabel(topic, material)} is unrelated to the evidence and examples students reviewed.`;
+      const statement = isTrue
+        ? concept
+        : `The most important idea in ${pickTopicLabel(topic, material)} is not supported by the evidence or examples from the notes.`;
       questions.push({
         id: createId(`quiz-${index}`),
         type: 'true-false',
@@ -198,17 +332,16 @@ const buildQuizQuestions = (
         options: ['True', 'False'],
         correctAnswer: isTrue ? 'True' : 'False',
         explanation: isTrue
-          ? `${fact} is true and it supports the central concept students should understand.`
-          : `This statement is false because the evidence points to a clear relationship between the topic and the supporting material.`,
+          ? `${concept} is accurate because it reflects a real idea, definition, or relationship from the study material.`
+          : `This statement is false because the material supports a specific concept or relationship that matters to the topic.`,
       });
     } else {
-      const prompt = `In your own words, explain the main idea behind ${pickTopicLabel(topic, material)} and how it connects to the material you studied.`;
       questions.push({
         id: createId(`quiz-${index}`),
         type: 'short-answer',
-        prompt,
-        correctAnswer: fact,
-        explanation: `A strong answer should explain the central idea and connect it to the example or evidence in the notes.`,
+        prompt: `In your own words, explain the main idea behind ${pickTopicLabel(topic, material)} and connect it to the notes you reviewed.`,
+        correctAnswer: concept,
+        explanation: `A strong answer should explain the concept clearly and connect it to a relevant example, definition, or relationship from the material.`,
       });
     }
   }
@@ -220,102 +353,73 @@ const isShortAnswerCorrect = (question: QuizQuestion, answer: string) => {
   const candidate = normalizeText(answer || '').toLowerCase();
   if (!candidate) return false;
   const correct = normalizeText(question.correctAnswer || '').toLowerCase();
-  const tokens = correct.split(/\s+/).filter((word) => word.length > 3);
+  const tokens = correct.split(/\s+/).filter((word) => word.length > 3 && !stopWords.has(word));
   if (!tokens.length) return false;
   return tokens.some((token) => candidate.includes(token));
 };
 
-const buildStudyGuide = (subject: string, course: string, unit: string, material: string): StudyGuide => {
-  const resolvedSubject = normalizeText(subject || 'Study subject');
+const buildStudyGuide = (course: string, unit: string, material: string): StudyGuide => {
   const resolvedCourse = normalizeText(course || 'Course');
-  const resolvedUnit = normalizeText(unit || 'Core topics');
-  const facts = extractFacts(resolvedSubject, material);
-  const includeFormulaSheet = /(physics|chemistry|biology|math|algebra|geometry|calculus|statistics|engineering|economics|astronomy|mechanics|thermodynamics)/i.test(
-    `${resolvedSubject} ${resolvedCourse} ${material}`
-  );
+  const resolvedUnit = normalizeText(unit || 'Core topic');
+  const signals = getMaterialSignals(resolvedCourse, material);
+  const includeFormulaSheet = signals.formulas.length > 0 || /(physics|chemistry|biology|math|algebra|geometry|calculus|statistics|economics|engineering|astronomy|mechanics)/i.test(`${resolvedCourse} ${resolvedUnit} ${material}`);
 
   const formulaSheet = includeFormulaSheet
     ? {
         title: 'Formula Sheet',
-        formulas: [
-          ...(resolvedSubject.toLowerCase().includes('physics')
-            ? [
-                { formula: 'v = d / t', meaning: 'Average velocity equals distance divided by time.' },
-                { formula: 'F = ma', meaning: 'Net force equals mass times acceleration.' },
-                { formula: 'E = mc²', meaning: 'Energy equals mass times the speed of light squared.' },
-              ]
-            : []),
-          ...(resolvedSubject.toLowerCase().includes('chemistry')
-            ? [
-                { formula: 'pH = -log[H+]', meaning: 'pH is the negative logarithm of hydrogen ion concentration.' },
-                { formula: 'PV = nRT', meaning: 'Pressure times volume equals moles times the gas constant times temperature.' },
-              ]
-            : []),
-          ...(resolvedSubject.toLowerCase().includes('math') || resolvedSubject.toLowerCase().includes('algebra') || resolvedSubject.toLowerCase().includes('geometry')
-            ? [
-                { formula: 'm = (y2 - y1) / (x2 - x1)', meaning: 'Slope equals the change in y divided by the change in x.' },
-                { formula: 'A = lw', meaning: 'Area of a rectangle equals length times width.' },
-              ]
-            : []),
-          ...(resolvedSubject.toLowerCase().includes('biology')
-            ? [
-                { formula: 'p + q = 1', meaning: 'In a simple population model, the frequency of dominant and recessive traits sums to one.' },
-              ]
-            : []),
-        ],
+        formulas: signals.formulas.length
+          ? signals.formulas.map((item) => ({
+              formula: item.split('—')[0]?.trim() || item.slice(0, 35),
+              meaning: item.split('—')[1]?.trim() || 'A key relationship from the study material.',
+            }))
+          : [
+              { formula: 'Concept = key idea + evidence', meaning: 'Use the central idea together with supporting details to explain the material clearly.' },
+            ],
       }
     : undefined;
 
   const sections: SummarySection[] = [
     {
       title: 'Key concepts',
-      items: facts.slice(0, 3).length ? facts.slice(0, 3) : ['Focus on the central idea, the supporting evidence, and the key vocabulary.'],
+      items: signals.concepts.slice(0, 4) || ['Focus on the main idea and the evidence that explains it.'],
     },
     {
       title: 'Important definitions',
-      items: facts.filter((fact) => /is|are|means|refers|defines|called/i.test(fact)).slice(0, 3).length
-        ? facts.filter((fact) => /is|are|means|refers|defines|called/i.test(fact)).slice(0, 3)
-        : ['Memorize the definition in your own words and connect it to a concrete example.'],
-    },
-    {
-      title: 'Important facts',
-      items: facts.slice(2, 5).length ? facts.slice(2, 5) : ['Use the notes to identify the evidence and details that support the larger concept.'],
-    },
-    {
-      title: 'Common mistakes',
-      items: [
-        'Do not memorize isolated details without understanding how they connect to the main idea.',
-        'Check that your answer uses the correct vocabulary and units or steps for the task.',
-      ],
-    },
-    {
-      title: 'Key relationships',
-      items: [
-        'Connect the concept to examples, prerequisites, and outcomes so the idea becomes easier to remember.',
-        'Review how the concept changes across a problem, diagram, or experiment.'
-      ],
+      items: signals.definitions.slice(0, 4) || ['Write each definition in your own words and connect it to a concrete example.'],
     },
   ];
 
+  if (signals.processes.length) {
+    sections.push({ title: 'Important processes', items: signals.processes.slice(0, 3) });
+  }
+
+  sections.push({
+    title: 'Common mistakes',
+    items: [
+      'Do not memorize isolated facts without understanding how they fit into the larger concept.',
+      'Check whether your answer uses the correct vocabulary, units, and reasoning path.',
+    ],
+  });
+
+  if (signals.relationships.length) {
+    sections.push({ title: 'Key relationships', items: signals.relationships.slice(0, 3) });
+  }
+
   if (formulaSheet) {
-    sections.push({
-      title: 'Formula Sheet',
-      items: formulaSheet.formulas.map((entry) => `${entry.formula} — ${entry.meaning}`),
-    });
+    sections.push({ title: 'Formula Sheet', items: formulaSheet.formulas.map((entry) => `${entry.formula} — ${entry.meaning}`) });
   }
 
   return {
-    subject: resolvedSubject,
+    subject: resolvedCourse,
     course: resolvedCourse,
     unit: resolvedUnit,
-    overview: `This guide for ${resolvedSubject} in ${resolvedCourse} highlights the most useful ideas, vocabulary, and relationships for ${resolvedUnit}.`,
+    overview: `This guide for ${resolvedCourse} focuses on the biggest ideas, definitions, and relationships tied to ${resolvedUnit}.`,
     sections,
     formulaSheet,
   };
 };
 
 function StudyTools() {
-  const { awardXp } = useAuth();
   const [selectedTool, setSelectedTool] = useState<ToolKey>('flashcards');
   const [flashTopic, setFlashTopic] = useState('');
   const [flashMaterial, setFlashMaterial] = useState('');
@@ -340,7 +444,6 @@ function StudyTools() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizError, setQuizError] = useState('');
 
-  const [guideSubject, setGuideSubject] = useState('');
   const [guideCourse, setGuideCourse] = useState('');
   const [guideUnit, setGuideUnit] = useState('');
   const [guideMaterial, setGuideMaterial] = useState('');
@@ -405,7 +508,6 @@ function StudyTools() {
     setFlashIndex(0);
     setFlashFlipped(false);
     setFlashError('');
-    awardXp(25);
     setSavedOutput((prev) => ({ ...prev, flashcards: deck }));
   };
 
@@ -435,21 +537,19 @@ function StudyTools() {
     setQuizAnswers({});
     setQuizSubmitted(false);
     setQuizError('');
-    awardXp(35);
     setSavedOutput((prev) => ({ ...prev, quiz: generated }));
   };
 
   const handleGenerateGuide = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!normalizeText(guideSubject) && !normalizeText(guideMaterial)) {
-      setGuideError('Select a subject or describe what you want to study before creating a guide.');
+    if (!normalizeText(guideCourse) && !normalizeText(guideMaterial)) {
+      setGuideError('Add the course and material before creating a study guide.');
       return;
     }
 
-    const generated = buildStudyGuide(guideSubject, guideCourse, guideUnit, guideMaterial);
+    const generated = buildStudyGuide(guideCourse, guideUnit, guideMaterial);
     setGuide(generated);
     setGuideError('');
-    awardXp(30);
     setSavedOutput((prev) => ({ ...prev, guide: generated }));
   };
 
@@ -461,7 +561,6 @@ function StudyTools() {
     }
 
     setQuizSubmitted(true);
-    awardXp(40);
     setQuizError('');
   };
 
@@ -783,23 +882,19 @@ function StudyTools() {
             <h2>Study Guides</h2>
             <form className="tool-form" onSubmit={handleGenerateGuide}>
               <label>
-                Subject
-                <input value={guideSubject} onChange={(event) => setGuideSubject(event.target.value)} placeholder="AP Physics, English Literature, AP Chemistry" />
+                Course
+                <input value={guideCourse} onChange={(event) => setGuideCourse(event.target.value)} placeholder="AP Biology, English Literature, AP Physics" />
               </label>
               <div className="input-row two-up">
                 <label>
-                  Course
-                  <input value={guideCourse} onChange={(event) => setGuideCourse(event.target.value)} placeholder="AP Biology" />
-                </label>
-                <label>
-                  Unit or topic
+                  Topic or unit
                   <input value={guideUnit} onChange={(event) => setGuideUnit(event.target.value)} placeholder="Cell transport" />
                 </label>
+                <label>
+                  Material to study
+                  <textarea value={guideMaterial} onChange={(event) => setGuideMaterial(event.target.value)} placeholder="Paste chapter notes, key concepts, reading summaries, or formulas." />
+                </label>
               </div>
-              <label>
-                Material to study
-                <textarea value={guideMaterial} onChange={(event) => setGuideMaterial(event.target.value)} placeholder="Paste chapter notes, key concepts, reading summaries, or formulas." />
-              </label>
               <div className="tool-actions">
                 <button type="submit" className="primary-button">Generate study guide</button>
                 {guide && (
@@ -839,7 +934,7 @@ function StudyTools() {
                   </div>
                 )}
 
-                <button type="button" className="secondary-button" onClick={() => setGuide(buildStudyGuide(guideSubject, guideCourse, guideUnit, guideMaterial))}>Generate another guide</button>
+                <button type="button" className="secondary-button" onClick={() => setGuide(buildStudyGuide(guideCourse, guideUnit, guideMaterial))}>Generate another guide</button>
               </div>
             ) : (
               <div className="empty-state">Create a structured study guide with the concepts, vocabulary, and formulas your course needs.</div>

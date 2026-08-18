@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { computeDashboardStats, PlanTask, PlannerInput, DashboardStats } from '../services/api';
 
 type SessionState = {
@@ -18,16 +18,45 @@ type AuthContextValue = {
   awardXp: (amount: number) => void;
 };
 
+const AUTH_STORAGE_KEY = 'slap-auth-state';
+
+const defaultSessionState: SessionState = {
+  userName: '',
+  tasks: [],
+  plannerInput: null,
+};
+
+const loadStoredState = () => {
+  if (typeof window === 'undefined') {
+    return { sessionState: defaultSessionState, dashboard: null };
+  }
+
+  try {
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return { sessionState: defaultSessionState, dashboard: null };
+    const parsed = JSON.parse(raw) as { sessionState?: SessionState; dashboard?: DashboardStats | null };
+    return {
+      sessionState: parsed.sessionState ?? defaultSessionState,
+      dashboard: parsed.dashboard ?? null,
+    };
+  } catch {
+    return { sessionState: defaultSessionState, dashboard: null };
+  }
+};
+
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [sessionState, setSessionState] = useState<SessionState>({
-    userName: '',
-    tasks: [],
-    plannerInput: null,
-  });
-  const [dashboard, setDashboard] = useState<DashboardStats | null>(null);
+  const stored = loadStoredState();
+  const [sessionState, setSessionState] = useState<SessionState>(stored.sessionState);
+  const [dashboard, setDashboard] = useState<DashboardStats | null>(stored.dashboard);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ sessionState, dashboard }));
+    }
+  }, [sessionState, dashboard]);
 
   const setUserName = (name: string) => {
     setSessionState((prev) => ({ ...prev, userName: name }));
@@ -55,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const awardXp = (amount: number) => {
     setDashboard((prev) => {
       if (!prev) return prev;
-      return { ...prev, xp: prev.xp + amount };
+      return { ...prev, xp: Math.max(0, prev.xp + amount) };
     });
   };
 

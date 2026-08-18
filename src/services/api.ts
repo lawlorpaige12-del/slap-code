@@ -109,9 +109,18 @@ export async function generatePlan(input: PlannerInput): Promise<PlanTask[]> {
   if (!courseList.length) return [];
 
   const priorities = {
-    High: { multiplier: 1.3, xp: 120 },
-    Medium: { multiplier: 1, xp: 90 },
-    Low: { multiplier: 0.85, xp: 70 },
+    High: { multiplier: 1.4, xp: 120 },
+    Medium: { multiplier: 1.1, xp: 90 },
+    Low: { multiplier: 0.9, xp: 70 },
+  };
+
+  const taskDifficultyMap: Record<string, number> = {
+    'Practice Test': 35,
+    'Review Notes': 12,
+    'Concept Drill': 18,
+    'Flashcard Sprint': 10,
+    'Problem Set': 25,
+    'Essay Outline': 20,
   };
 
   const baseTasks = [
@@ -122,7 +131,6 @@ export async function generatePlan(input: PlannerInput): Promise<PlanTask[]> {
     'Problem Set',
   ];
 
-  // Determine total available study slots from weekly availability
   const availability = (input.weeklyAvailability || {}) as WeeklyAvailability;
   const totalSlots = (Object.keys(availability) as Array<keyof WeeklyAvailability>).reduce(
     (acc, d) => acc + (Number(availability[d]) || 0),
@@ -132,33 +140,33 @@ export async function generatePlan(input: PlannerInput): Promise<PlanTask[]> {
   const generated: PlanTask[] = [];
 
   if (totalSlots > 0) {
-    // Create tasks proportional to available slots
     let i = 0;
     while (generated.length < totalSlots) {
       const course = courseList[i % courseList.length];
       const activity = baseTasks[i % baseTasks.length];
       const priorityObj = priorities[input.priority];
       const durationBase = 30 + (i % 5) * 10;
+      const xpBase = taskDifficultyMap[activity] || 15;
       generated.push({
         id: `${course}-${activity}-${i}`,
         title: `${course} ${activity}`,
         duration: `${Math.round(durationBase * priorityObj.multiplier)} min`,
-        xp: Math.round(priorityObj.xp * priorityObj.multiplier),
+        xp: Math.max(5, Math.round(xpBase * priorityObj.multiplier)),
         completed: false,
       });
       i += 1;
     }
   } else {
-    // Fallback: one task per course if no availability specified
     courseList.forEach((course, index) => {
       const activity = baseTasks[index % baseTasks.length];
       const priority = priorities[input.priority];
       const durationBase = 30 + index * 10;
+      const xpBase = taskDifficultyMap[activity] || 15;
       generated.push({
         id: `${course}-${activity}`,
         title: `${course} ${activity}`,
         duration: `${Math.round(durationBase * priority.multiplier)} min`,
-        xp: Math.round(priority.xp * priority.multiplier),
+        xp: Math.max(5, Math.round(xpBase * priority.multiplier)),
         completed: false,
       });
     });
