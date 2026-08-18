@@ -15,6 +15,7 @@ type AuthContextValue = {
   setTasks: (tasks: PlanTask[]) => void;
   setPlannerInput: (input: PlannerInput) => void;
   refreshDashboard: () => Promise<void>;
+  awardXp: (amount: number) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -51,6 +52,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(false);
   };
 
+  const awardXp = (amount: number) => {
+    setDashboard((prev) => {
+      if (!prev) return prev;
+      return { ...prev, xp: prev.xp + amount };
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -61,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTasks,
         setPlannerInput,
         refreshDashboard,
+        awardXp,
       }}
     >
       {children}

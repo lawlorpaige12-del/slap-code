@@ -1,23 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=Federo&display=swap');
+
 * {
   box-sizing: border-box;
 }
 
 :root {
   color-scheme: light;
-  font-family: 'Gelasio', Georgia, serif;
+  font-family: 'Federo', 'Gelasio', Georgia, serif;
   background: #f7f7f7;
-  color: #2c4251;
+  color: #2C4251;
   --surface: #ffffff;
   --surface-strong: #dce2e8;
-  --primary: #2c4251;
-  --accent: #d16666;
-  --accent-strong: #b20d30;
-  --success: #08dc52;
-  --muted: #c1c1c1;
+  --primary: #2C4251;
+  --accent: #D16666;
+  --accent-strong: #D16666;
+  --success: #B6C649;
+  --muted: #C1C1C1;
 }
-
-/* Import Gelasio from Google Fonts (fallback if not available) */
-@import url('https://fonts.googleapis.com/css2?family=Gelasio:wght@400;700&display=swap');
 
 /* Larger base sizes for headings and body */
 body { font-size: 18px; }
@@ -126,6 +125,15 @@ a {
 
 button {
   cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 3px solid rgba(209, 102, 102, 0.55);
+  outline-offset: 2px;
 }
 
 .app-shell {
@@ -410,6 +418,231 @@ textarea {
 
 .tool-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.tool-card {
+  display: grid;
+  gap: 0.5rem;
+  text-align: left;
+  border: 1px solid rgba(44, 66, 81, 0.1);
+  border-radius: 18px;
+  background: #f9fafb;
+  color: var(--primary);
+  padding: 1rem;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.tool-card:hover,
+.tool-card:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(209, 102, 102, 0.5);
+  box-shadow: 0 12px 28px rgba(44, 66, 81, 0.08);
+}
+
+.tool-card-active {
+  background: rgba(209, 102, 102, 0.09);
+  border-color: rgba(209, 102, 102, 0.7);
+}
+
+.tool-card strong {
+  font-size: 1.05rem;
+}
+
+.tool-card span {
+  color: rgba(44, 66, 81, 0.75);
+  line-height: 1.5;
+}
+
+.tool-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.tool-content {
+  display: grid;
+  gap: 1rem;
+}
+
+.tool-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.tool-form label {
+  display: grid;
+  gap: 0.5rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.input-row {
+  display: grid;
+  gap: 1rem;
+}
+
+.input-row.two-up {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.tool-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.primary-button,
+.secondary-button,
+.option-button {
+  border-radius: 999px;
+  border: none;
+  padding: 0.8rem 1.2rem;
+  font-weight: 700;
+}
+
+.primary-button {
+  background: var(--primary);
+  color: var(--surface);
+}
+
+.secondary-button {
+  background: #edf1f4;
+  color: var(--primary);
+}
+
+.secondary-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.empty-state {
+  border: 1px dashed var(--muted);
+  border-radius: 18px;
+  padding: 1.25rem;
+  color: rgba(44, 66, 81, 0.7);
+  background: rgba(193, 193, 193, 0.08);
+}
+
+.deck-panel,
+.summary-panel,
+.quiz-panel,
+.guide-panel {
+  display: grid;
+  gap: 1rem;
+  border-radius: 20px;
+  background: #f8fafb;
+  padding: 1rem;
+}
+
+.deck-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.flashcard {
+  min-height: 210px;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  border-radius: 22px;
+  background: linear-gradient(160deg, rgba(44, 66, 81, 0.95) 0%, rgba(209, 102, 102, 0.9) 100%);
+  color: white;
+  cursor: pointer;
+  text-align: center;
+}
+
+.flashcard strong {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.8;
+}
+
+.flashcard p {
+  margin: 0.75rem 0 0;
+  line-height: 1.7;
+  font-size: 1.15rem;
+}
+
+.summary-overview {
+  margin: 0;
+  color: rgba(44, 66, 81, 0.8);
+  line-height: 1.7;
+}
+
+.summary-section,
+.incorrect-review {
+  background: #fff;
+  border: 1px solid rgba(44, 66, 81, 0.08);
+  border-radius: 18px;
+  padding: 1rem;
+}
+
+.summary-section ul,
+.incorrect-review ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.option-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.option-button {
+  background: #f0f4f7;
+  color: var(--primary);
+  text-align: left;
+}
+
+.option-selected {
+  background: rgba(182, 198, 73, 0.15);
+  border: 1px solid rgba(182, 198, 73, 0.8);
+}
+
+.quiz-feedback {
+  background: rgba(182, 198, 73, 0.08);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  line-height: 1.6;
+}
+
+.formula-sheet {
+  border: 1px solid rgba(44, 66, 81, 0.08);
+  border-radius: 18px;
+  background: #fff;
+  padding: 1rem;
+}
+
+.formula-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.formula-card {
+  display: grid;
+  gap: 0.55rem;
+  border-radius: 16px;
+  background: rgba(182, 198, 73, 0.08);
+  padding: 0.9rem;
+  color: var(--primary);
+}
+
+.formula-card strong {
+  font-size: 1.05rem;
+}
+
+.saved-output {
+  background: rgba(193, 193, 193, 0.14);
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(44, 66, 81, 0.08);
 }
 
 .contact-grid {
